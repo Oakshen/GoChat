@@ -1,4 +1,4 @@
-package database
+package entities
 
 import (
 	"time"
@@ -24,6 +24,11 @@ type User struct {
 	Messages     []Message    `gorm:"foreignKey:UserID" json:"messages,omitempty"`
 }
 
+// TableName 指定表名
+func (User) TableName() string {
+	return "users"
+}
+
 // Room 聊天室模型
 type Room struct {
 	ID          uint      `gorm:"primarykey" json:"id"`
@@ -40,6 +45,11 @@ type Room struct {
 	Messages    []Message    `gorm:"foreignKey:RoomID" json:"messages,omitempty"`
 }
 
+// TableName 指定表名
+func (Room) TableName() string {
+	return "rooms"
+}
+
 // Message 消息模型
 type Message struct {
 	ID          uint      `gorm:"primarykey" json:"id"`
@@ -52,6 +62,11 @@ type Message struct {
 	// 关联关系
 	Room Room `gorm:"foreignKey:RoomID" json:"room,omitempty"`
 	User User `gorm:"foreignKey:UserID" json:"user,omitempty"`
+}
+
+// TableName 指定表名
+func (Message) TableName() string {
+	return "messages"
 }
 
 // RoomMember 聊天室成员模型
@@ -67,7 +82,7 @@ type RoomMember struct {
 	User User `gorm:"foreignKey:UserID" json:"user,omitempty"`
 }
 
-// TableName 确保 RoomMember 表有唯一约束
+// TableName 指定表名
 func (RoomMember) TableName() string {
 	return "room_members"
 }
@@ -82,17 +97,4 @@ func (rm *RoomMember) BeforeCreate(tx *gorm.DB) error {
 	}
 	rm.JoinedAt = time.Now()
 	return nil
-}
-
-// TableName 为各个模型指定表名
-func (User) TableName() string {
-	return "users"
-}
-
-func (Room) TableName() string {
-	return "rooms"
-}
-
-func (Message) TableName() string {
-	return "messages"
 }
