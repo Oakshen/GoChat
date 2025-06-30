@@ -1,0 +1,30 @@
+server:
+  port: 8080
+  mode: "debug" # debug, release, test
+
+database:
+  host: "localhost"
+  port: 3306
+  user: "root"
+  password: "az3064973"
+  dbname: "gochat"
+  timezone: "Asia/Shanghai"
+
+# redis:
+#   host: "localhost"
+#   port: 6379
+#   password: ""
+#   db: 0
+
+jwt:
+  secret: "gochat-jwt-secret-key-change-in-production-2024"
+  expire_hours: 24
+
+websocket:
+  read_buffer_size: 1024
+  write_buffer_size: 1024
+  check_origin: true
+
+log:
+  level: "info" # debug, info, warn, error
+  format: "json" # text, json 
