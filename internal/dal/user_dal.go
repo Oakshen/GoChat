@@ -94,3 +94,118 @@ func (d *UserDAL) CheckEmailExists(email string) (bool, error) {
 	err := d.db.Model(&entities.User{}).Where("email = ?", email).Count(&count).Error
 	return count > 0, err
 }
+
+// ===================== 软删除相关方法 =====================
+
+// SoftDeleteByID 软删除用户（推荐使用）
+func (d *UserDAL) SoftDeleteByID(userID uint) error {
+	return d.db.Delete(&entities.User{}, userID).Error
+}
+
+// HardDeleteByID 硬删除用户（谨慎使用）
+func (d *UserDAL) HardDeleteByID(userID uint) error {
+	return d.db.Unscoped().Delete(&entities.User{}, userID).Error
+}
+
+// RestoreByID 恢复已软删除的用户
+func (d *UserDAL) RestoreByID(userID uint) error {
+	return d.db.Unscoped().Model(&entities.User{}).Where("id = ?", userID).Update("deleted_at", nil).Error
+}
+
+// GetDeletedUsers 获取已删除的用户列表
+func (d *UserDAL) GetDeletedUsers() ([]entities.User, error) {
+	var users []entities.User
+	err := d.db.Unscoped().Where("deleted_at IS NOT NULL").Find(&users).Error
+	return users, err
+}
+
+// GetByIDWithDeleted 根据ID查找用户（包括已删除的）
+func (d *UserDAL) GetByIDWithDeleted(id uint) (*entities.User, error) {
+	var user entities.User
+	err := d.db.Unscoped().First(&user, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
+}
+
+// IsUserDeleted 检查用户是否已被软删除
+func (d *UserDAL) IsUserDeleted(userID uint) (bool, error) {
+	var user entities.User
+	err := d.db.Unscoped().Select("deleted_at").First(&user, userID).Error
+	if err != nil {
+		return false, err
+	}
+	return user.DeletedAt.Valid, nil
+}
+
+// ===================== 房间相关软删除方法 =====================
+
+// RoomDAL 房间数据访问层
+type RoomDAL struct {
+	db *gorm.DB
+}
+
+// NewRoomDAL 创建房间数据访问层实例
+func NewRoomDAL() *RoomDAL {
+	return &RoomDAL{
+		db: database.DB,
+	}
+}
+
+// SoftDeleteRoom 软删除房间
+func (d *RoomDAL) SoftDeleteRoom(roomID uint) error {
+	return d.db.Delete(&entities.Room{}, roomID).Error
+}
+
+// RestoreRoom 恢复已软删除的房间
+func (d *RoomDAL) RestoreRoom(roomID uint) error {
+	return d.db.Unscoped().Model(&entities.Room{}).Where("id = ?", roomID).Update("deleted_at", nil).Error
+}
+
+// GetActiveRooms 获取活跃房间列表
+func (d *RoomDAL) GetActiveRooms() ([]entities.Room, error) {
+	var rooms []entities.Room
+	err := d.db.Find(&rooms).Error // 自动排除已删除的
+	return rooms, err
+}
+
+// ===================== 房间成员相关软删除方法 =====================
+
+// RoomMemberDAL 房间成员数据访问层
+type RoomMemberDAL struct {
+	db *gorm.DB
+}
+
+// NewRoomMemberDAL 创建房间成员数据访问层实例
+func NewRoomMemberDAL() *RoomMemberDAL {
+	return &RoomMemberDAL{
+		db: database.DB,
+	}
+}
+
+// SoftDeleteMember 软删除房间成员（用户退出房间）
+func (d *RoomMemberDAL) SoftDeleteMember(roomID, userID uint) error {
+	return d.db.Where("room_id = ? AND user_id = ?", roomID, userID).Delete(&entities.RoomMember{}).Error
+}
+
+// RestoreMember 恢复房间成员
+func (d *RoomMemberDAL) RestoreMember(roomID, userID uint) error {
+	return d.db.Unscoped().Model(&entities.RoomMember{}).
+		Where("room_id = ? AND user_id = ?", roomID, userID).
+		Update("deleted_at", nil).Error
+}
+
+// GetRoomActiveMembers 获取房间活跃成员
+func (d *RoomMemberDAL) GetRoomActiveMembers(roomID uint) ([]entities.RoomMember, error) {
+	var members []entities.RoomMember
+	err := d.db.Where("room_id = ?", roomID).Find(&members).Error // 自动排除已删除的
+	return members, err
+}
+
+// GetMemberHistory 获取房间成员历史（包括已删除的）
+func (d *RoomMemberDAL) GetMemberHistory(roomID uint) ([]entities.RoomMember, error) {
+	var members []entities.RoomMember
+	err := d.db.Unscoped().Where("room_id = ?", roomID).Find(&members).Error
+	return members, err
+}

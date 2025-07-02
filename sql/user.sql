@@ -7,5 +7,7 @@ CREATE TABLE users (
     is_online BOOLEAN DEFAULT FALSE,
     last_seen TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    deleted_at TIMESTAMP DEFAULT NULL,
+    INDEX idx_users_deleted_at (deleted_at)
 );
