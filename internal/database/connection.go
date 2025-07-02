@@ -3,6 +3,7 @@ package database
 import (
 	"fmt"
 	"gochat/internal/config"
+	"gochat/internal/models/entities"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -42,18 +43,18 @@ func Connect(cfg *config.DatabaseConfig) error {
 // AutoMigrate 自动迁移数据库表结构
 func AutoMigrate() error {
 	err := DB.AutoMigrate(
-		&User{},
-		&Room{},
-		&Message{},
-		&RoomMember{},
+		&entities.User{},
+		&entities.Room{},
+		&entities.Message{},
+		&entities.RoomMember{},
 	)
 	if err != nil {
 		return fmt.Errorf("failed to auto migrate: %w", err)
 	}
 
 	// 添加唯一约束
-	if !DB.Migrator().HasConstraint(&RoomMember{}, "unique_room_user") {
-		err := DB.Migrator().CreateConstraint(&RoomMember{}, "unique_room_user")
+	if !DB.Migrator().HasConstraint(&entities.RoomMember{}, "unique_room_user") {
+		err := DB.Migrator().CreateConstraint(&entities.RoomMember{}, "unique_room_user")
 		if err != nil {
 			return err
 		}
