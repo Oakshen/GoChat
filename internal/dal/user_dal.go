@@ -170,6 +170,54 @@ func (d *RoomDAL) GetActiveRooms() ([]entities.Room, error) {
 	return rooms, err
 }
 
+// Create 创建聊天室
+func (d *RoomDAL) Create(room *entities.Room) (*entities.Room, error) {
+	if err := d.db.Create(room).Error; err != nil {
+		return nil, err
+	}
+	return room, nil
+}
+
+// GetByID 根据ID获取聊天室
+func (d *RoomDAL) GetByID(roomID uint) (*entities.Room, error) {
+	var room entities.Room
+	if err := d.db.Preload("Creator").First(&room, roomID).Error; err != nil {
+		return nil, err
+	}
+	return &room, nil
+}
+
+// GetUserRooms 获取用户加入的聊天室
+func (d *RoomDAL) GetUserRooms(userID uint) ([]*entities.Room, error) {
+	var rooms []*entities.Room
+	err := d.db.Joins("JOIN room_members ON rooms.id = room_members.room_id").
+		Where("room_members.user_id = ? AND room_members.deleted_at IS NULL", userID).
+		Preload("Creator").
+		Find(&rooms).Error
+	return rooms, err
+}
+
+// Update 更新聊天室信息
+func (d *RoomDAL) Update(roomID uint, name, description string) (*entities.Room, error) {
+	var room entities.Room
+	if err := d.db.First(&room, roomID).Error; err != nil {
+		return nil, err
+	}
+
+	room.Name = name
+	room.Description = description
+	if err := d.db.Save(&room).Error; err != nil {
+		return nil, err
+	}
+
+	return &room, nil
+}
+
+// Delete 删除聊天室
+func (d *RoomDAL) Delete(roomID uint) error {
+	return d.db.Delete(&entities.Room{}, roomID).Error
+}
+
 // ===================== 房间成员相关软删除方法 =====================
 
 // RoomMemberDAL 房间成员数据访问层
@@ -208,4 +256,34 @@ func (d *RoomMemberDAL) GetMemberHistory(roomID uint) ([]entities.RoomMember, er
 	var members []entities.RoomMember
 	err := d.db.Unscoped().Where("room_id = ?", roomID).Find(&members).Error
 	return members, err
+}
+
+// Create 创建聊天室成员关系
+func (d *RoomMemberDAL) Create(member *entities.RoomMember) error {
+	return d.db.Create(member).Error
+}
+
+// GetByRoomID 根据聊天室ID获取成员列表
+func (d *RoomMemberDAL) GetByRoomID(roomID uint) ([]*entities.RoomMember, error) {
+	var members []*entities.RoomMember
+	err := d.db.Where("room_id = ?", roomID).
+		Preload("User").
+		Preload("Room").
+		Find(&members).Error
+	return members, err
+}
+
+// IsMember 检查用户是否是聊天室成员
+func (d *RoomMemberDAL) IsMember(roomID, userID uint) (bool, error) {
+	var count int64
+	err := d.db.Model(&entities.RoomMember{}).
+		Where("room_id = ? AND user_id = ?", roomID, userID).
+		Count(&count).Error
+	return count > 0, err
+}
+
+// Delete 删除聊天室成员关系（软删除）
+func (d *RoomMemberDAL) Delete(roomID, userID uint) error {
+	return d.db.Where("room_id = ? AND user_id = ?", roomID, userID).
+		Delete(&entities.RoomMember{}).Error
 }
