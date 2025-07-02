@@ -99,3 +99,13 @@ func (s *UserService) GetOnlineUsers() ([]responses.UserProfile, error) {
 
 	return profiles, nil
 }
+
+func (s *UserService) DeleteUser(userID uint) error {
+	// todo 是否需要获取整个entities.User整个用户信息
+
+	if err := s.userDAL.SoftDeleteByID(userID); err != nil {
+		return errors.New("删除用户失败")
+	}
+
+	return nil
+}

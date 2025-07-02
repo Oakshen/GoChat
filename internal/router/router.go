@@ -42,6 +42,7 @@ func SetupRouter(addr string) *server.Hertz {
 	protected.GET("/users/:id", userHandler.GetProfile)
 	protected.PUT("/users/:id", userHandler.UpdateProfile)
 	protected.GET("/users/online", userHandler.GetOnlineUsers)
+	protected.GET("/users/delete/:id", userHandler.DeleteUser)
 
 	// 健康检查
 	h.GET("/health", func(ctx context.Context, c *app.RequestContext) {

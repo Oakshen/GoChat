@@ -89,3 +89,24 @@ func (h *UserHandler) GetOnlineUsers(ctx context.Context, c *app.RequestContext)
 
 	response.Success(ctx, c, profiles)
 }
+
+func (h *UserHandler) DeleteUser(ctx context.Context, c *app.RequestContext) {
+	userIDStr := c.Param("id")
+	userID, err := strconv.ParseUint(userIDStr, 10, 32)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, utils.H{
+			"error": "无效的用户ID",
+		})
+		return
+	}
+
+	err = h.userService.DeleteUser(uint(userID))
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, utils.H{
+			"error": err.Error(),
+		})
+		return
+	}
+
+	response.Success(ctx, c, "用户已删除")
+}

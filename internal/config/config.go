@@ -123,7 +123,7 @@ func Load() (*Config, error) {
 		cfg.JWT.Secret = "your-secret-key-change-in-production"
 	}
 
-	if hours := getEnvAsInt("JWT_EXPIRE_HOURS", 0); hours != 0 {
+	if hours := getEnvAsInt("JWT_EXPIRE_HOURS", 1); hours != 0 {
 		cfg.JWT.ExpireHours = time.Duration(hours) * time.Hour
 	} else if cfg.JWT.ExpireHours == 0 {
 		cfg.JWT.ExpireHours = time.Duration(cfg.JWT.ExpireHours) * time.Hour
