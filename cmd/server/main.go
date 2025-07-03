@@ -5,6 +5,7 @@ import (
 	"gochat/internal/config"
 	"gochat/internal/database"
 	"gochat/internal/router"
+	ws "gochat/internal/websocket"
 	"gochat/pkg/logger"
 	"log"
 )
@@ -32,11 +33,16 @@ func main() {
 	}
 	logger.Info("Database migration completed")
 
+	// 初始化WebSocket Hub
+	wsHub := ws.NewHub()
+	go wsHub.Run()
+	logger.Info("WebSocket Hub started")
+
 	// 启动服务器
 	serverAddr := fmt.Sprintf(":%s", cfg.Server.Port)
 	logger.Info("Server starting on", serverAddr)
 
 	// 设置路由并启动服务器
-	h := router.SetupRouter(serverAddr)
+	h := router.SetupRouter(serverAddr, wsHub)
 	h.Spin()
 }
