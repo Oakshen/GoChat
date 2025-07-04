@@ -36,6 +36,18 @@ func (s *RoomService) GetUserRooms(userID uint) ([]*entities.Room, error) {
 
 // JoinRoom 用户加入聊天室
 func (s *RoomService) JoinRoom(userID, roomID uint) error {
+	// 先检查用户是否已经在聊天室中
+	isMember, err := s.roomMemberDAL.IsMember(roomID, userID)
+	if err != nil {
+		return err
+	}
+
+	// 如果用户已经在聊天室中，返回成功（幂等操作）
+	if isMember {
+		return nil
+	}
+
+	// 用户不在聊天室中，创建新的成员记录
 	member := &entities.RoomMember{
 		RoomID: roomID,
 		UserID: userID,
