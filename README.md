@@ -2,7 +2,8 @@
 
 一个基于 Go 语言和 CloudWeGo Hertz 框架开发的现代化实时聊天应用，配备完整的 Vue.js 前端界面，支持多用户实时聊天、聊天室管理、消息持久化等功能。
 
-![Example](docs/imag1.png)
+![Example](docs/images/img1.png)
+![Example](docs/images/img2.png)
 
 ## 🎯 开发里程碑
 
