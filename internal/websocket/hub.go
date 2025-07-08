@@ -269,6 +269,9 @@ func (h *Hub) handleClientMessage(clientMsg *ClientMessage) {
 	case MessageTypeTyping:
 		logger.Info("处理正在输入消息:", client.Username)
 		h.handleTypingMessage(client, message)
+	case MessageTypePing:
+		logger.Info("处理心跳ping消息:", client.Username)
+		h.handlePingMessage(client)
 	default:
 		logger.Error("不支持的消息类型:", message.Type, "用户:", client.Username)
 		client.SendError("不支持的消息类型", 400)
@@ -328,6 +331,22 @@ func (h *Hub) handleTypingMessage(client *Client, message *WSMessage) {
 		RoomID:  message.RoomID,
 		Message: message,
 		Exclude: client,
+	}
+}
+
+// handlePingMessage 处理心跳ping消息
+func (h *Hub) handlePingMessage(client *Client) {
+	// 发送pong响应
+	pongMsg := &WSMessage{
+		Type:      MessageTypePong,
+		Timestamp: time.Now(),
+	}
+
+	err := client.SendWSMessage(pongMsg)
+	if err != nil {
+		logger.Error("Failed to send pong message to client:", client.Username, "error:", err)
+	} else {
+		logger.Info("Pong message sent to client:", client.Username)
 	}
 }
 

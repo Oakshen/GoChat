@@ -13,6 +13,8 @@ const (
 	MessageTypeSystem   MessageType = "system"   // 系统消息
 	MessageTypeUserList MessageType = "userlist" // 用户列表更新
 	MessageTypeError    MessageType = "error"    // 错误消息
+	MessageTypePing     MessageType = "ping"     // 心跳ping消息
+	MessageTypePong     MessageType = "pong"     // 心跳pong响应
 )
 
 // WSMessage WebSocket 消息结构
