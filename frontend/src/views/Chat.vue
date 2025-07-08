@@ -155,7 +155,12 @@
                   <span class="message-username">{{ message.username }}</span>
                   <span class="message-time">{{ formatTime(message.timestamp) }}</span>
                 </div>
-                <div class="message-text">{{ message.content }}</div>
+                <!-- 多媒体消息或文本消息 -->
+                <MediaMessage 
+                  v-if="message.attachments && message.attachments.length > 0"
+                  :message="message"
+                />
+                <div v-else class="message-text">{{ message.content }}</div>
               </div>
             </div>
           </div>
@@ -173,6 +178,7 @@
               @keydown.enter="handleInputKeydown"
             />
             <div class="input-actions">
+              <FileUpload @file-uploaded="handleFileUploaded" />
               <el-button 
                 type="primary" 
                 :icon="Promotion"
@@ -326,8 +332,10 @@ import {
 } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import { useChatStore } from '@/stores/chat'
-import { createRoom as createRoomApi, joinRoom } from '@/api/room'
+import { createRoom as createRoomApi, joinRoom, searchRoomById, searchRoomsByName } from '@/api/room'
 import wsClient from '@/utils/websocket'
+import FileUpload from '@/components/FileUpload.vue'
+import MediaMessage from '@/components/MediaMessage.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -435,6 +443,39 @@ const sendMessage = async () => {
   }
 }
 
+// 处理文件上传
+const handleFileUploaded = (uploadData) => {
+  if (!currentRoomId.value) {
+    ElMessage.error('请先选择聊天室')
+    return
+  }
+
+  // 构建附件信息
+  const attachments = uploadData.attachments.map(attachment => ({
+    id: attachment.id,
+    file_name: attachment.file_name,
+    file_size: attachment.file_size,
+    file_type: attachment.file_type,
+    category: attachment.category,
+    width: attachment.width || 0,
+    height: attachment.height || 0,
+    duration: attachment.duration || 0,
+    url: `/api/files/${attachment.id}/preview`
+  }))
+
+  // 发送多媒体消息
+  const messageType = uploadData.category === 'image' ? 'image' : 
+                     uploadData.category === 'video' ? 'video' : 'file'
+  
+  wsClient.sendMediaMessage(currentRoomId.value, {
+    type: messageType,
+    content: uploadData.messageText || '',
+    attachments: attachments
+  })
+
+  ElMessage.success('文件发送成功')
+}
+
 const handleInputKeydown = (event) => {
   if (event.key === 'Enter' && !event.shiftKey) {
     event.preventDefault()
@@ -485,24 +526,30 @@ const searchRooms = () => {
     
     searchLoading.value = true
     try {
-      // 获取所有聊天室，然后在前端过滤
-      await chatStore.fetchRooms()
-      const allRooms = chatStore.rooms
-      
       if (joinRoomForm.searchType === 'id') {
-        // 按ID搜索
+        // 按ID搜索 - 调用GetRoom接口
         const roomId = parseInt(joinRoomForm.searchValue)
         if (!isNaN(roomId)) {
-          searchResults.value = allRooms.filter(room => room.id === roomId)
+          try {
+            const response = await searchRoomById(roomId)
+            searchResults.value = response.data ? [response.data] : []
+          } catch (error) {
+            // 如果聊天室不存在或无权访问，返回空结果
+            console.log('Room not found or access denied:', error)
+            searchResults.value = []
+          }
         } else {
           searchResults.value = []
         }
       } else {
-        // 按名称搜索
-        const searchValue = joinRoomForm.searchValue.toLowerCase()
-        searchResults.value = allRooms.filter(room => 
-          room.name.toLowerCase().includes(searchValue)
-        )
+        // 按名称搜索 - 调用GetRoomsByBlurName接口
+        try {
+          const response = await searchRoomsByName(joinRoomForm.searchValue)
+          searchResults.value = response.data || []
+        } catch (error) {
+          console.error('Failed to search rooms by name:', error)
+          searchResults.value = []
+        }
       }
     } catch (error) {
       console.error('Failed to search rooms:', error)

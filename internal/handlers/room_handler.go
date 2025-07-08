@@ -85,6 +85,26 @@ func (h *RoomHandler) GetRooms(ctx context.Context, c *app.RequestContext) {
 	response.Success(ctx, c, rooms)
 }
 
+// GetRoomsByBlurName 根据名称模糊搜索群聊
+func (h *RoomHandler) GetRoomsByBlurName(ctx context.Context, c *app.RequestContext) {
+	// 获取查询参数
+	name := c.Query("name")
+	if name == "" {
+		c.JSON(http.StatusBadRequest, utils.H{
+			"error": "查询参数name不能为空",
+		})
+		return
+	}
+	rooms, err := h.roomService.SearchRoomsByBlurName(name)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, utils.H{
+			"error": err.Error(),
+		})
+		return
+	}
+	response.Success(ctx, c, rooms)
+}
+
 // GetRoom 获取聊天室详情
 func (h *RoomHandler) GetRoom(ctx context.Context, c *app.RequestContext) {
 	roomIDStr := c.Param("id")

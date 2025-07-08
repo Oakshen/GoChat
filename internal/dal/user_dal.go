@@ -187,6 +187,17 @@ func (d *RoomDAL) GetByID(roomID uint) (*entities.Room, error) {
 	return &room, nil
 }
 
+// GetByBlurName 根据模糊名称搜索聊天室
+func (d *RoomDAL) GetByBlurName(name string) ([]*entities.Room, error) {
+	var rooms []*entities.Room
+	if err := d.db.Where("name LIKE ?", "%"+name+"%").
+		Preload("Creator").
+		Find(&rooms).Error; err != nil {
+		return nil, err
+	}
+	return rooms, nil
+}
+
 // GetUserRooms 获取用户加入的聊天室
 func (d *RoomDAL) GetUserRooms(userID uint) ([]*entities.Room, error) {
 	var rooms []*entities.Room

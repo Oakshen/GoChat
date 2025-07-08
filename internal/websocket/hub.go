@@ -251,6 +251,9 @@ func (h *Hub) handleClientMessage(clientMsg *ClientMessage) {
 	case MessageTypeText:
 		logger.Info("处理文本消息:", client.Username)
 		h.handleTextMessage(client, message)
+	case MessageTypeImage, MessageTypeFile, MessageTypeVideo:
+		logger.Info("处理多媒体消息:", client.Username, "类型:", message.Type)
+		h.handleMediaMessage(client, message)
 	case MessageTypeJoin:
 		logger.Info("处理加入聊天室消息:", client.Username, "RoomID:", message.RoomID)
 		if message.RoomID > 0 {
@@ -318,6 +321,64 @@ func (h *Hub) handleTextMessage(client *Client, message *WSMessage) {
 	}
 
 	logger.Info("Message sent:", client.Username, "RoomID:", message.RoomID, "Content:", message.Content)
+}
+
+// handleMediaMessage 处理多媒体消息
+func (h *Hub) handleMediaMessage(client *Client, message *WSMessage) {
+	if message.RoomID == 0 {
+		client.SendError("聊天室ID不能为空", 400)
+		return
+	}
+
+	if !client.IsInRoom(message.RoomID) {
+		client.SendError("您不在此聊天室中", 403)
+		return
+	}
+
+	// 验证附件信息是否存在
+	if len(message.Attachments) == 0 {
+		client.SendError("多媒体消息必须包含附件", 400)
+		return
+	}
+
+	// 保存消息到数据库
+	dbMessage := &entities.Message{
+		RoomID:      message.RoomID,
+		UserID:      client.UserID,
+		Content:     message.Content, // 可能为空，多媒体消息的描述文字
+		MessageType: string(message.Type),
+	}
+
+	savedMessage, err := h.messageService.CreateMessage(dbMessage)
+	if err != nil {
+		logger.Error("Failed to save media message:", err)
+		client.SendError("多媒体消息发送失败", 500)
+		return
+	}
+
+	// 设置消息ID
+	message.MessageID = savedMessage.ID
+
+	// 更新附件的消息ID（如果附件是临时上传的）
+	attachmentService := services.NewAttachmentService()
+	for _, attachment := range message.Attachments {
+		if attachment.ID > 0 {
+			err := attachmentService.UpdateAttachmentMessageID(attachment.ID, savedMessage.ID)
+			if err != nil {
+				logger.Error("Failed to update attachment message ID:", err)
+				// 不阻断消息发送，仅记录错误
+			}
+		}
+	}
+
+	// 广播消息到聊天室
+	h.broadcast <- &BroadcastMessage{
+		RoomID:  message.RoomID,
+		Message: message,
+		Exclude: nil, // 不排除任何人，包括发送者
+	}
+
+	logger.Info("Media message sent:", client.Username, "RoomID:", message.RoomID, "Type:", message.Type, "Attachments:", len(message.Attachments))
 }
 
 // handleTypingMessage 处理正在输入消息

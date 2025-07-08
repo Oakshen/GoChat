@@ -74,6 +74,9 @@ class WebSocketClient {
     
     switch (type) {
       case 'text':
+      case 'image':
+      case 'file':
+      case 'video':
         this.emit('message', message)
         break
       case 'system':
@@ -115,6 +118,16 @@ class WebSocketClient {
       type: 'text',
       room_id: roomId,
       content: content
+    })
+  }
+
+  // 发送多媒体消息
+  sendMediaMessage(roomId, mediaData) {
+    this.send({
+      type: mediaData.type,
+      room_id: roomId,
+      content: mediaData.content,
+      attachments: mediaData.attachments
     })
   }
 

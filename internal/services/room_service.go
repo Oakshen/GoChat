@@ -29,6 +29,11 @@ func (s *RoomService) GetRoomByID(roomID uint) (*entities.Room, error) {
 	return s.roomDAL.GetByID(roomID)
 }
 
+// SearchRoomsByBlurName 模糊搜索聊天室
+func (s *RoomService) SearchRoomsByBlurName(name string) ([]*entities.Room, error) {
+	return s.roomDAL.GetByBlurName(name)
+}
+
 // GetUserRooms 获取用户加入的聊天室
 func (s *RoomService) GetUserRooms(userID uint) ([]*entities.Room, error) {
 	return s.roomDAL.GetUserRooms(userID)
