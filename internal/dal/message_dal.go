@@ -41,6 +41,7 @@ func (d *MessageDAL) GetByRoomID(roomID uint, limit, offset int) ([]*entities.Me
 	var messages []*entities.Message
 	query := d.db.Where("room_id = ?", roomID).
 		Preload("User").
+		Preload("Attachments").
 		Order("created_at DESC")
 
 	if limit > 0 {

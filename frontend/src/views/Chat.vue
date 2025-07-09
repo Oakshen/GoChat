@@ -130,35 +130,47 @@
 
         <!-- 消息列表 -->
         <div ref="messagesContainer" class="messages-container">
-          <div
-            v-for="message in currentMessages"
-            :key="message.id || message.timestamp"
-            class="message-item"
-            :class="{ 
-              'own-message': message.user_id === authStore.user?.id,
-              'system-message': message.type === 'system'
-            }"
-          >
-            <div v-if="message.type === 'system'" class="system-content">
-              {{ message.content }}
+          <template v-for="(group, index) in groupedMessages" :key="index">
+            <!-- 时间轴 -->
+            <div class="time-divider">
+              <span class="time-label">{{ group.timeLabel }}</span>
             </div>
-            <div v-else class="message-content">
-              <el-avatar 
-                :size="32" 
-                :src="message.avatar"
-                class="message-avatar"
-              >
-                {{ message.username?.charAt(0)?.toUpperCase() }}
-              </el-avatar>
-              <div class="message-bubble">
-                <div class="message-header">
-                  <span class="message-username">{{ message.username }}</span>
-                  <span class="message-time">{{ formatTime(message.timestamp) }}</span>
+            
+            <!-- 该时间段的消息 -->
+            <div
+              v-for="message in group.messages"
+              :key="message.id || message.timestamp"
+              class="message-item"
+              :class="{ 
+                'own-message': message.user_id === authStore.user?.id,
+                'system-message': message.type === 'system'
+              }"
+            >
+              <div v-if="message.type === 'system'" class="system-content">
+                <span class="system-text">{{ message.content }}</span>
+              </div>
+              <div v-else class="message-content">
+                <el-avatar 
+                  :size="32" 
+                  :src="message.avatar"
+                  class="message-avatar"
+                >
+                  {{ message.username?.charAt(0)?.toUpperCase() }}
+                </el-avatar>
+                <div class="message-bubble">
+                  <div class="message-header">
+                    <span class="message-username">{{ message.username }}</span>
+                  </div>
+                  <!-- 多媒体消息或文本消息 -->
+                  <MediaMessage 
+                    v-if="message.attachments && message.attachments.length > 0"
+                    :message="message"
+                  />
+                  <div v-else class="message-text">{{ message.content }}</div>
                 </div>
-                <div class="message-text">{{ message.content }}</div>
               </div>
             </div>
-          </div>
+          </template>
         </div>
 
         <!-- 输入区域 -->
@@ -173,6 +185,7 @@
               @keydown.enter="handleInputKeydown"
             />
             <div class="input-actions">
+              <FileUpload @file-uploaded="handleFileUploaded" />
               <el-button 
                 type="primary" 
                 :icon="Promotion"
@@ -326,8 +339,10 @@ import {
 } from '@element-plus/icons-vue'
 import { useAuthStore } from '@/stores/auth'
 import { useChatStore } from '@/stores/chat'
-import { createRoom as createRoomApi, joinRoom } from '@/api/room'
+import { createRoom as createRoomApi, joinRoom, searchRoomById, searchRoomsByName } from '@/api/room'
 import wsClient from '@/utils/websocket'
+import FileUpload from '@/components/FileUpload.vue'
+import MediaMessage from '@/components/MediaMessage.vue'
 
 const router = useRouter()
 const authStore = useAuthStore()
@@ -384,6 +399,40 @@ const filteredContacts = computed(() => {
   )
 })
 
+// 按时间分组消息
+const groupedMessages = computed(() => {
+  if (!currentMessages.value || currentMessages.value.length === 0) {
+    return []
+  }
+
+  const groups = []
+  let currentGroup = null
+  const TIME_GROUP_INTERVAL = 2 * 60 * 1000 // 2分钟间隔
+
+  currentMessages.value.forEach(message => {
+    const messageTime = new Date(message.timestamp || message.created_at)
+    
+    if (!currentGroup || 
+        !currentGroup.lastTime || 
+        messageTime - currentGroup.lastTime > TIME_GROUP_INTERVAL) {
+      
+      // 创建新的时间分组
+      currentGroup = {
+        timeLabel: formatTimeLabel(messageTime),
+        messages: [message],
+        lastTime: messageTime
+      }
+      groups.push(currentGroup)
+    } else {
+      // 添加到当前分组
+      currentGroup.messages.push(message)
+      currentGroup.lastTime = messageTime
+    }
+  })
+
+  return groups
+})
+
 // 方法
 const selectRoom = async (roomId) => {
   try {
@@ -433,6 +482,39 @@ const sendMessage = async () => {
   } finally {
     sendingMessage.value = false
   }
+}
+
+// 处理文件上传
+const handleFileUploaded = (uploadData) => {
+  if (!currentRoomId.value) {
+    ElMessage.error('请先选择聊天室')
+    return
+  }
+
+  // 构建附件信息
+  const attachments = uploadData.attachments.map(attachment => ({
+    id: attachment.id,
+    file_name: attachment.file_name,
+    file_size: attachment.file_size,
+    file_type: attachment.file_type,
+    category: attachment.category,
+    width: attachment.width || 0,
+    height: attachment.height || 0,
+    duration: attachment.duration || 0,
+    url: `/api/files/${attachment.id}/preview`
+  }))
+
+  // 发送多媒体消息
+  const messageType = uploadData.category === 'image' ? 'image' : 
+                     uploadData.category === 'video' ? 'video' : 'file'
+  
+  wsClient.sendMediaMessage(currentRoomId.value, {
+    type: messageType,
+    content: uploadData.messageText || '',
+    attachments: attachments
+  })
+
+  ElMessage.success('文件发送成功')
 }
 
 const handleInputKeydown = (event) => {
@@ -485,24 +567,30 @@ const searchRooms = () => {
     
     searchLoading.value = true
     try {
-      // 获取所有聊天室，然后在前端过滤
-      await chatStore.fetchRooms()
-      const allRooms = chatStore.rooms
-      
       if (joinRoomForm.searchType === 'id') {
-        // 按ID搜索
+        // 按ID搜索 - 调用GetRoom接口
         const roomId = parseInt(joinRoomForm.searchValue)
         if (!isNaN(roomId)) {
-          searchResults.value = allRooms.filter(room => room.id === roomId)
+          try {
+            const response = await searchRoomById(roomId)
+            searchResults.value = response.data ? [response.data] : []
+          } catch (error) {
+            // 如果聊天室不存在或无权访问，返回空结果
+            console.log('Room not found or access denied:', error)
+            searchResults.value = []
+          }
         } else {
           searchResults.value = []
         }
       } else {
-        // 按名称搜索
-        const searchValue = joinRoomForm.searchValue.toLowerCase()
-        searchResults.value = allRooms.filter(room => 
-          room.name.toLowerCase().includes(searchValue)
-        )
+        // 按名称搜索 - 调用GetRoomsByBlurName接口
+        try {
+          const response = await searchRoomsByName(joinRoomForm.searchValue)
+          searchResults.value = response.data || []
+        } catch (error) {
+          console.error('Failed to search rooms by name:', error)
+          searchResults.value = []
+        }
       }
     } catch (error) {
       console.error('Failed to search rooms:', error)
@@ -589,19 +677,68 @@ const scrollToBottom = () => {
   }
 }
 
+// 时间轴标签格式化（类似微信）
+const formatTimeLabel = (timestamp) => {
+  if (!timestamp) return ''
+  
+  const date = new Date(timestamp)
+  const now = new Date()
+  
+  // 防止无效时间
+  if (isNaN(date.getTime())) return ''
+  
+  // 获取今天0点
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const messageDate = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+  
+  const dayDiff = Math.floor((today - messageDate) / (24 * 60 * 60 * 1000))
+  
+  if (dayDiff === 0) {
+    // 今天：显示时间
+    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+  } else if (dayDiff === 1) {
+    // 昨天
+    return '昨天'
+  } else if (dayDiff <= 7) {
+    // 一周内：显示星期几
+    const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六']
+    return weekdays[date.getDay()]
+  } else if (date.getFullYear() === now.getFullYear()) {
+    // 同年：显示月日
+    return date.toLocaleDateString('zh-CN', { month: 'long', day: 'numeric' })
+  } else {
+    // 不同年：显示年月日
+    return date.toLocaleDateString('zh-CN', { year: 'numeric', month: 'long', day: 'numeric' })
+  }
+}
+
 const formatTime = (timestamp) => {
+  if (!timestamp) return ''
+  
   const date = new Date(timestamp)
   const now = new Date()
   const diff = now - date
+  
+  // 防止无效时间
+  if (isNaN(date.getTime())) return ''
   
   if (diff < 60000) { // 1分钟内
     return '刚刚'
   } else if (diff < 3600000) { // 1小时内
     return `${Math.floor(diff / 60000)}分钟前`
+  } else if (diff < 86400000) { // 24小时内
+    return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
   } else if (date.toDateString() === now.toDateString()) { // 今天
     return date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
   } else {
-    return date.toLocaleDateString('zh-CN') + ' ' + date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+    // 超过24小时显示日期和时间
+    const yesterday = new Date(now.getTime() - 86400000)
+    if (date.toDateString() === yesterday.toDateString()) {
+      return '昨天 ' + date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+    } else {
+      return date.toLocaleDateString('zh-CN', { month: 'short', day: 'numeric' }) + ' ' + 
+             date.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })
+    }
   }
 }
 
@@ -662,6 +799,13 @@ onUnmounted(() => {
 
 // 监听消息变化，自动滚动到底部
 watch(currentMessages, () => {
+  nextTick(() => {
+    scrollToBottom()
+  })
+}, { deep: true })
+
+// 监听分组消息变化，自动滚动到底部
+watch(groupedMessages, () => {
   nextTick(() => {
     scrollToBottom()
   })
@@ -834,6 +978,7 @@ watch(currentMessages, () => {
   display: flex;
   flex-direction: column;
   background: white;
+  min-height: 0; /* 确保可以收缩 */
 }
 
 .chat-header {
@@ -842,6 +987,7 @@ watch(currentMessages, () => {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-shrink: 0; /* 防止头部被压缩 */
 }
 
 .chat-info {
@@ -871,10 +1017,36 @@ watch(currentMessages, () => {
   overflow-y: auto;
   padding: 20px;
   background: #fafafa;
+  min-height: 0; /* 确保可以收缩 */
+}
+
+/* 时间轴样式 */
+.time-divider {
+  text-align: center;
+  margin: 15px 0 10px 0;
+  position: relative;
+}
+
+.time-divider:first-child {
+  margin-top: 10px;
+}
+
+.time-label {
+  display: inline-block;
+  padding: 2px 8px;
+  background: rgba(0, 0, 0, 0.08);
+  color: #999;
+  font-size: 11px;
+  border-radius: 8px;
+  line-height: 1.4;
 }
 
 .message-item {
-  margin-bottom: 15px;
+  margin-bottom: 6px;
+}
+
+.message-item:last-child {
+  margin-bottom: 0;
 }
 
 .message-item.system-message {
@@ -889,6 +1061,7 @@ watch(currentMessages, () => {
   font-size: 12px;
   color: #666;
 }
+
 
 .message-content {
   display: flex;
@@ -914,9 +1087,6 @@ watch(currentMessages, () => {
 }
 
 .message-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
   margin-bottom: 5px;
 }
 
@@ -930,14 +1100,6 @@ watch(currentMessages, () => {
   color: rgba(255,255,255,0.8);
 }
 
-.message-time {
-  font-size: 11px;
-  color: #999;
-}
-
-.message-item.own-message .message-time {
-  color: rgba(255,255,255,0.6);
-}
 
 .message-text {
   font-size: 14px;
@@ -949,6 +1111,7 @@ watch(currentMessages, () => {
   padding: 20px;
   border-top: 1px solid #e6e6e6;
   background: white;
+  flex-shrink: 0; /* 防止输入区域被压缩 */
 }
 
 .input-container {

@@ -47,6 +47,7 @@ func AutoMigrate() error {
 		&entities.Room{},
 		&entities.Message{},
 		&entities.RoomMember{},
+		&entities.Attachment{}, // 添加附件表
 	)
 	if err != nil {
 		return fmt.Errorf("failed to auto migrate: %w", err)

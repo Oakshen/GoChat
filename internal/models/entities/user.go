@@ -52,18 +52,42 @@ func (Room) TableName() string {
 	return "rooms"
 }
 
+// Attachment 附件模型
+type Attachment struct {
+	ID        uint      `gorm:"primarykey" json:"id"`
+	MessageID *uint     `gorm:"index" json:"message_id"`             // 允许NULL，用于临时附件
+	FileName  string    `gorm:"size:255;not null" json:"file_name"`  // 原始文件名
+	FilePath  string    `gorm:"size:500;not null" json:"file_path"`  // 存储路径
+	FileSize  int64     `gorm:"not null" json:"file_size"`           // 文件大小（字节）
+	FileType  string    `gorm:"size:100;not null" json:"file_type"`  // MIME类型
+	Category  string    `gorm:"size:20;not null" json:"category"`    // image, file, video
+	Width     int       `gorm:"default:0" json:"width,omitempty"`    // 图片/视频宽度
+	Height    int       `gorm:"default:0" json:"height,omitempty"`   // 图片/视频高度
+	Duration  int       `gorm:"default:0" json:"duration,omitempty"` // 视频时长（秒）
+	CreatedAt time.Time `json:"created_at"`
+
+	// 关联关系
+	Message *Message `gorm:"foreignKey:MessageID" json:"message,omitempty"`
+}
+
+// TableName 指定表名
+func (Attachment) TableName() string {
+	return "attachments"
+}
+
 // Message 消息模型
 type Message struct {
 	ID          uint      `gorm:"primarykey" json:"id"`
 	RoomID      uint      `gorm:"not null;index" json:"room_id"`
 	UserID      uint      `gorm:"not null;index" json:"user_id"`
-	Content     string    `gorm:"type:text;not null" json:"content"`
-	MessageType string    `gorm:"size:20;default:'text'" json:"message_type"`
+	Content     string    `gorm:"type:text" json:"content"`                   // 文本内容，多媒体消息可为空
+	MessageType string    `gorm:"size:20;default:'text'" json:"message_type"` // text, image, file, video
 	CreatedAt   time.Time `json:"created_at"`
 
 	// 关联关系
-	Room Room `gorm:"foreignKey:RoomID" json:"room,omitempty"`
-	User User `gorm:"foreignKey:UserID" json:"user,omitempty"`
+	Room        Room         `gorm:"foreignKey:RoomID" json:"room,omitempty"`
+	User        User         `gorm:"foreignKey:UserID" json:"user,omitempty"`
+	Attachments []Attachment `gorm:"foreignKey:MessageID" json:"attachments,omitempty"`
 }
 
 // TableName 指定表名

@@ -35,4 +35,16 @@ export const getRoomMessages = (roomId, page = 1, limit = 50) => {
   return http.get(`/rooms/${roomId}/messages`, {
     params: { page, limit }
   })
+}
+
+// 根据ID搜索聊天室（可搜索用户未加入的聊天室）
+export const searchRoomById = (roomId) => {
+  return http.get(`/rooms/${roomId}`)
+}
+
+// 根据名称模糊搜索聊天室
+export const searchRoomsByName = (name) => {
+  return http.get('/rooms/search', {
+    params: { name }
+  })
 } 
