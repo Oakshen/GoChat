@@ -72,10 +72,14 @@ func SetupRouter(addr string, wsHub *ws.Hub) *server.Hertz {
 
 	// 文件相关路由
 	protected.POST("/files/upload", fileHandler.UploadFile)
-	protected.GET("/files/:id/download", fileHandler.DownloadFile)
-	protected.GET("/files/:id/preview", fileHandler.PreviewFile)
 	protected.GET("/files/:id", fileHandler.GetFileInfo)
 	protected.DELETE("/files/:id", fileHandler.DeleteFile)
+
+	// 文件下载和预览路由（支持查询参数认证）
+	fileAuth := h.Group("/api/files")
+	fileAuth.Use(middleware.AuthMiddlewareWithQuery(cfg.JWT.Secret))
+	fileAuth.GET("/:id/download", fileHandler.DownloadFile)
+	fileAuth.GET("/:id/preview", fileHandler.PreviewFile)
 
 	// 静态文件服务 - 手动处理
 	h.GET("/web/*filepath", func(ctx context.Context, c *app.RequestContext) {

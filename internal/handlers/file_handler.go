@@ -6,6 +6,7 @@ import (
 	"gochat/internal/services"
 	"gochat/pkg/response"
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/cloudwego/hertz/pkg/app"
@@ -90,6 +91,14 @@ func (h *FileHandler) DownloadFile(ctx context.Context, c *app.RequestContext) {
 		return
 	}
 
+	// 检查文件是否存在
+	if _, err := os.Stat(attachment.FilePath); os.IsNotExist(err) {
+		c.JSON(http.StatusNotFound, utils.H{
+			"error": "文件不存在",
+		})
+		return
+	}
+
 	// 设置响应头
 	c.Header("Content-Type", attachment.FileType)
 	c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=\"%s\"", attachment.FileName))
@@ -123,6 +132,14 @@ func (h *FileHandler) PreviewFile(ctx context.Context, c *app.RequestContext) {
 	if attachment.Category != "image" && attachment.Category != "video" {
 		c.JSON(http.StatusBadRequest, utils.H{
 			"error": "该文件类型不支持预览",
+		})
+		return
+	}
+
+	// 检查文件是否存在
+	if _, err := os.Stat(attachment.FilePath); os.IsNotExist(err) {
+		c.JSON(http.StatusNotFound, utils.H{
+			"error": "文件不存在",
 		})
 		return
 	}

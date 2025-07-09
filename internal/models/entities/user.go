@@ -55,7 +55,7 @@ func (Room) TableName() string {
 // Attachment 附件模型
 type Attachment struct {
 	ID        uint      `gorm:"primarykey" json:"id"`
-	MessageID uint      `gorm:"not null;index" json:"message_id"`
+	MessageID *uint     `gorm:"index" json:"message_id"`             // 允许NULL，用于临时附件
 	FileName  string    `gorm:"size:255;not null" json:"file_name"`  // 原始文件名
 	FilePath  string    `gorm:"size:500;not null" json:"file_path"`  // 存储路径
 	FileSize  int64     `gorm:"not null" json:"file_size"`           // 文件大小（字节）
@@ -67,7 +67,7 @@ type Attachment struct {
 	CreatedAt time.Time `json:"created_at"`
 
 	// 关联关系
-	Message Message `gorm:"foreignKey:MessageID" json:"message,omitempty"`
+	Message *Message `gorm:"foreignKey:MessageID" json:"message,omitempty"`
 }
 
 // TableName 指定表名

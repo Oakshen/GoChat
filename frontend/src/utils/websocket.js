@@ -117,7 +117,8 @@ class WebSocketClient {
     this.send({
       type: 'text',
       room_id: roomId,
-      content: content
+      content: content,
+      timestamp: new Date().toISOString()
     })
   }
 
@@ -127,7 +128,8 @@ class WebSocketClient {
       type: mediaData.type,
       room_id: roomId,
       content: mediaData.content,
-      attachments: mediaData.attachments
+      attachments: mediaData.attachments,
+      timestamp: new Date().toISOString()
     })
   }
 

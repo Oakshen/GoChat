@@ -27,14 +27,16 @@ export const deleteFile = (fileId) => {
   return http.delete(`/files/${fileId}`)
 }
 
-// 获取文件下载URL
+// 获取文件下载URL（带认证token）
 export const getDownloadUrl = (fileId) => {
-  return `/api/files/${fileId}/download`
+  const token = localStorage.getItem('token')
+  return `/api/files/${fileId}/download?token=${token}`
 }
 
-// 获取文件预览URL  
+// 获取文件预览URL（带认证token）
 export const getPreviewUrl = (fileId) => {
-  return `/api/files/${fileId}/preview`
+  const token = localStorage.getItem('token')
+  return `/api/files/${fileId}/preview?token=${token}`
 }
 
 // 获取静态文件URL

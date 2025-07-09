@@ -56,6 +56,6 @@ func (d *AttachmentDAL) DeleteByMessageID(messageID uint) error {
 }
 
 // UpdateMessageID 更新附件的消息ID
-func (d *AttachmentDAL) UpdateMessageID(attachmentID, messageID uint) error {
+func (d *AttachmentDAL) UpdateMessageID(attachmentID uint, messageID *uint) error {
 	return d.db.Model(&entities.Attachment{}).Where("id = ?", attachmentID).Update("message_id", messageID).Error
 }

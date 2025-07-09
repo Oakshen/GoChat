@@ -74,12 +74,17 @@ func (s *AttachmentService) UploadFile(fileHeader *multipart.FileHeader, message
 
 	// 创建附件记录
 	attachment := &entities.Attachment{
-		MessageID: messageID, // 如果为0，表示临时附件，稍后会关联到实际消息
+		MessageID: nil, // 先创建为临时附件，稍后会关联到实际消息
 		FileName:  fileHeader.Filename,
 		FilePath:  filePath,
 		FileSize:  size,
 		FileType:  fileType,
 		Category:  category,
+	}
+
+	// 如果提供了有效的 messageID，则直接关联
+	if messageID > 0 {
+		attachment.MessageID = &messageID
 	}
 
 	// 如果是图片或视频，可以在这里获取宽高信息
@@ -124,7 +129,7 @@ func (s *AttachmentService) DeleteAttachment(attachmentID uint) error {
 
 // UpdateAttachmentMessageID 更新附件的消息ID
 func (s *AttachmentService) UpdateAttachmentMessageID(attachmentID, messageID uint) error {
-	return s.attachmentDAL.UpdateMessageID(attachmentID, messageID)
+	return s.attachmentDAL.UpdateMessageID(attachmentID, &messageID)
 }
 
 // ValidateFile 验证文件

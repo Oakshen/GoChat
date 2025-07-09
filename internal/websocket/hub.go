@@ -196,6 +196,8 @@ func (h *Hub) handleJoinRoom(joinMsg *JoinRoomMessage) {
 		joinSuccessMsg := &WSMessage{
 			Type:      MessageTypeSystem,
 			RoomID:    roomID,
+			UserID:    client.UserID,
+			Username:  client.Username,
 			Content:   "已加入聊天室",
 			Timestamp: time.Now(),
 		}
@@ -310,8 +312,11 @@ func (h *Hub) handleTextMessage(client *Client, message *WSMessage) {
 		return
 	}
 
-	// 设置消息ID
+	// 设置消息ID和时间戳
 	message.MessageID = savedMessage.ID
+	message.UserID = client.UserID
+	message.Username = client.Username
+	message.Timestamp = savedMessage.CreatedAt
 
 	// 广播消息到聊天室
 	h.broadcast <- &BroadcastMessage{
@@ -356,8 +361,11 @@ func (h *Hub) handleMediaMessage(client *Client, message *WSMessage) {
 		return
 	}
 
-	// 设置消息ID
+	// 设置消息ID和时间戳
 	message.MessageID = savedMessage.ID
+	message.UserID = client.UserID
+	message.Username = client.Username
+	message.Timestamp = savedMessage.CreatedAt
 
 	// 更新附件的消息ID（如果附件是临时上传的）
 	attachmentService := services.NewAttachmentService()
@@ -400,6 +408,8 @@ func (h *Hub) handlePingMessage(client *Client) {
 	// 发送pong响应
 	pongMsg := &WSMessage{
 		Type:      MessageTypePong,
+		UserID:    client.UserID,
+		Username:  client.Username,
 		Timestamp: time.Now(),
 	}
 
@@ -447,6 +457,8 @@ func (h *Hub) notifyUserJoined(roomID uint, client *Client) {
 	message := &WSMessage{
 		Type:      MessageTypeSystem,
 		RoomID:    roomID,
+		UserID:    client.UserID,
+		Username:  client.Username,
 		Content:   client.Username + " 加入了聊天室",
 		Timestamp: time.Now(),
 	}
@@ -463,6 +475,8 @@ func (h *Hub) notifyUserLeft(roomID uint, client *Client) {
 	message := &WSMessage{
 		Type:      MessageTypeSystem,
 		RoomID:    roomID,
+		UserID:    client.UserID,
+		Username:  client.Username,
 		Content:   client.Username + " 离开了聊天室",
 		Timestamp: time.Now(),
 	}
@@ -564,6 +578,8 @@ func (h *Hub) handleJoinRoomDirect(client *Client, roomID uint) {
 		joinSuccessMsg := &WSMessage{
 			Type:      MessageTypeSystem,
 			RoomID:    roomID,
+			UserID:    client.UserID,
+			Username:  client.Username,
 			Content:   "已加入聊天室",
 			Timestamp: time.Now(),
 		}
